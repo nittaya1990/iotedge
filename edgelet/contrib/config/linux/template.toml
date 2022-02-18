@@ -44,7 +44,7 @@
 # Elevated Docker Permissions Flag
 # ==============================================================================
 #
-# Some docker capabilities capabilities can be used to gain root access. 
+# Some docker capabilities can be used to gain root access. 
 # By default, the --privileged flag and all capabilities listed in the CapAdd
 # field of the docker HostConfig are allowed.
 #
@@ -79,6 +79,26 @@
 #
 # auto_reprovisioning_mode = Dynamic
 #
+
+
+# ==============================================================================
+# Cloud Timeout and Retry Behavior
+# ==============================================================================
+#
+# These settings control the timeout and retries for cloud operations, such as
+# communication with DPS during provisioning or IoT Hub for module identity creation.
+#
+# cloud_timeout_sec is the deadline (in seconds) for a network request (such as
+# an HTTP request) to the aforementioned cloud services. A response from the cloud
+# must be received before this deadline, or the request will fail as timed out.
+#
+# cloud_retries controls how many times a request may be retried should it fail.
+# The client will always send at least one attempt, so its value will be the number
+# of retries after the first attempt should that fail (i.e. cloud_retries = 2
+# means that the client will make a total of 3 attempts).
+#
+# cloud_timeout_sec = 10
+# cloud_retries = 1
 
 
 # Provisioning configuration
@@ -116,12 +136,17 @@
 # [provisioning.authentication]
 # method = "x509"
 #
-# identity_cert = "file:///var/secrets/device-id.pem"                # file URI, or...
-# identity_cert = { method = "est", common_name = "my-device" }      # dynamically issued via EST, or...
-# identity_cert = { method = "local_ca", common_name = "my-device" } # dynamically issued by a local CA
-#
+## identity certificate private key
 # identity_pk = "file:///var/secrets/device-id.key.pem"              # file URI, or...
 # identity_pk = "pkcs11:slot-id=0;object=device%20id?pin-value=1234" # PKCS#11 URI
+#
+## identity certificate
+# identity_cert = "file:///var/secrets/device-id.pem"                # file URI, or...
+# [provisioning.authentication.identity_cert]                        # dynamically issued via...
+# method = "est"                                                     # - EST
+# method = "local_ca"                                                # - a local CA
+# common_name = "my-device"                                          # with the given common name, or...
+# subject = { L = "AQ", ST = "Antarctica", CN = "my-device" }        # with the given DN fields
 
 
 ## DPS provisioning with symmetric key
@@ -142,19 +167,24 @@
 ## DPS provisioning with X.509 certificate
 # [provisioning]
 # source = "dps"
-# global_endpoint = "https://global.azure-devices-provisioning.net"
+# global_endpoint = "https://global.azure-devices-provisioning.net/"
 # id_scope = "0ab1234C5D6"
 #
 # [provisioning.attestation]
 # method = "x509"
 # registration_id = "my-device"
 #
-# identity_cert = "file:///var/secrets/device-id.pem"                # file URI, or...
-# identity_cert = { method = "est", common_name = "my-device" }      # dynamically issued via EST, or...
-# identity_cert = { method = "local_ca", common_name = "my-device" } # dynamically issued by a local CA
-#
+## identity certificate private key
 # identity_pk = "file:///var/secrets/device-id.key.pem"              # file URI, or...
 # identity_pk = "pkcs11:slot-id=0;object=device%20id?pin-value=1234" # PKCS#11 URI
+#
+## identity certificate
+# identity_cert = "file:///var/secrets/device-id.pem"                # file URI, or...
+# [provisioning.attestation.identity_cert]                           # dynamically issued via...
+# method = "est"                                                     # - EST
+# method = "local_ca"                                                # - a local CA
+# common_name = "my-device"                                          # with the given common name, or...
+# subject = { L = "AQ", ST = "Antarctica", CN = "my-device" }        # with the given DN fields
 
 
 ## DPS provisioning with TPM
@@ -310,7 +340,7 @@
 # # Optional EST configuration for issuing the Edge CA certificate below.
 # # If not set, the defaults in [cert_issuance.est] will be used.
 #
-# common_name = "iotedged workload ca"
+# common_name = "aziot-edge CA"
 # expiry_days = 90
 # url = "https://example.org/.well-known/est"
 #
@@ -338,7 +368,7 @@
 #
 # # Optional configuration below.
 #
-# common_name = "iotedged workload ca"
+# common_name = "aziot-edge CA"
 # expiry_days = 90
 
 # ==============================================================================

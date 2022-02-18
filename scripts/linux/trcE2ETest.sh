@@ -50,6 +50,7 @@ function usage() {
     echo ' -restartIntervalInMins                   Value for long haul specifying how often a random module will restart. If specified, then "desiredModulesToRestartCSV" must be specified as well.'
     echo ' -sendReportFrequency                     Value for long haul specifying how often TRC will send reports to LogAnalytics.'
     echo " -testMode                                Test mode for TestResultCoordinator to start up with correct settings. Value is either 'LongHaul' or 'Connectivity'."
+    echo " -topology                                Configuration telling the TRC which topology tests are running in."
     echo " -repoPath                                Path of the checked-out iotedge repository for getting the deployment file."
     echo " -clientModuleTransportType               Value for contrained long haul specifying transport type for all client modules."
     echo " -trackingId                              Tracking id used to tag test events. Needed if running nested tests and test events are sent to TRC from L4 node. Otherwise generated."
@@ -211,6 +212,7 @@ function prepare_test_from_artifacts() {
     sed -i -e "s@<NetworkController.RunsCount0>@${NETWORK_CONTROLLER_FREQUENCIES[2]}@g" "$deployment_working_file"
 
     sed -i -e "s@<TestMode>@$TEST_MODE@g" "$deployment_working_file"
+    sed -i -e "s@<Topology>@$TOPOLOGY@g" "$deployment_working_file"
 
     sed -i -e "s@<LogRotationMaxFile>@$log_rotation_max_file@g" "$deployment_working_file"
     sed -i -e "s@<LogRotationMaxFileEdgeHub>@$log_rotation_max_file_edgehub@g" "$deployment_working_file"
@@ -291,6 +293,16 @@ function print_deployment_logs() {
     docker logs edgeAgent || true
 }
 
+
+function get_support_bundle_logs(){
+
+    print_highlighted_message "Getting Support Bundle Logs"
+    mkdir -p $working_folder/support
+    time=$(echo $test_start_time | sed 's/ /T/' | sed 's/$/Z/')
+    iotedge support-bundle -o $working_folder/support/iotedge_support_bundle.zip --since "$time"
+    print_highlighted_message "Finished getting support Bundle Logs"
+}
+
 function print_test_run_logs() {
     local ret=$1
 
@@ -298,78 +310,6 @@ function print_test_run_logs() {
     print_highlighted_message 'Print logs'
     print_highlighted_message 'testResultCoordinator LOGS'
     docker logs testResultCoordinator || true
-
-    if (( ret < 1 )); then
-        return;
-    fi
-
-    print_deployment_logs
-
-    print_highlighted_message '========== Logs from edgeHub =========='
-    docker logs edgeHub || true
-
-    print_highlighted_message '========== Logs from loadGen1 =========='
-    docker logs loadGen1 || true
-
-    print_highlighted_message 'loadGen2 =========='
-    docker logs loadGen2 || true
-
-    print_highlighted_message 'relayer1 =========='
-    docker logs relayer1 || true
-
-    print_highlighted_message '========== Logs from relayer2 =========='
-    docker logs relayer2 || true
-
-    print_highlighted_message '========== Logs from directMethodSender1 =========='
-    docker logs directMethodSender1 || true
-
-    print_highlighted_message '========== Logs from directMethodReceiver1 =========='
-    docker logs directMethodReceiver1 || true
-
-    print_highlighted_message '========== Logs from directMethodSender2 =========='
-    docker logs directMethodSender2 || true
-
-    print_highlighted_message '========== Logs from directMethodReceiver2 =========='
-    docker logs directMethodReceiver2 || true
-
-    print_highlighted_message '========== Logs from directMethodSender3 =========='
-    docker logs directMethodSender3 || true
-
-    print_highlighted_message '========== Logs from twinTester1 =========='
-    docker logs twinTester1 || true
-
-    print_highlighted_message '========== Logs from twinTester2 =========='
-    docker logs twinTester2 || true
-
-    print_highlighted_message '========== Logs from twinTester3 =========='
-    docker logs twinTester3 || true
-
-    print_highlighted_message '========== Logs from twinTester4 =========='
-    docker logs twinTester4 || true
-
-    print_highlighted_message '========== Logs from deploymentTester1 =========='
-    docker logs deploymentTester1 || true
-
-    print_highlighted_message '========== Logs from deploymentTester2 =========='
-    docker logs deploymentTester2 || true
-
-    print_highlighted_message '========== Logs from cloudToDeviceMessageSender1 =========='
-    docker logs cloudToDeviceMessageSender1 || true
-
-    print_highlighted_message '========== Logs from cloudToDeviceMessageReceiver1 =========='
-    docker logs cloudToDeviceMessageReceiver1 || true
-
-    print_highlighted_message '========== Logs from cloudToDeviceMessageSender2 =========='
-    docker logs cloudToDeviceMessageSender2 || true
-
-    print_highlighted_message '========== Logs from cloudToDeviceMessageReceiver2 =========='
-    docker logs cloudToDeviceMessageReceiver2 || true
-
-    print_highlighted_message '========== Logs from genericMqttTester =========='
-    docker logs genericMqttTester || true
-
-    print_highlighted_message 'networkController =========='
-    docker logs networkController || true
 }
 
 function process_args() {
@@ -518,6 +458,9 @@ function process_args() {
         elif [ $saveNextArg -eq 47 ]; then
             TRACKING_ID="$arg"
             saveNextArg=0;
+        elif [ $saveNextArg -eq 48 ]; then
+            TOPOLOGY="$arg"
+            saveNextArg=0;
         else
             case "$arg" in
                 '-h' | '--help' ) usage;;
@@ -568,6 +511,7 @@ function process_args() {
                 '-repoPath' ) saveNextArg=45;;
                 '-clientModuleTransportType' ) saveNextArg=46;;
                 '-trackingId' ) saveNextArg=47;;
+                '-topology' ) saveNextArg=48;;
                 '-waitForTestComplete' ) WAIT_FOR_TEST_COMPLETE=1;;
                 '-cleanAll' ) CLEAN_ALL=1;;
 
@@ -752,6 +696,7 @@ function run_connectivity_test() {
 
             if [ "$is_build_canceled" -eq '1' ]; then
                 print_highlighted_message "build is canceled."
+                get_support_bundle_logs
                 stop_aziot_edge || true
                 return 3
             fi
@@ -769,7 +714,8 @@ function run_connectivity_test() {
         else
             testExitCode=0
         fi
-
+        
+        get_support_bundle_logs
         print_test_run_logs $testExitCode
 
         # stop IoT Edge service after test complete to prevent sending metrics

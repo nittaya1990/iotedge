@@ -1,3 +1,5 @@
+#![allow(clippy::semicolon_if_nothing_returned)]
+
 use std::{
     convert::{TryFrom, TryInto},
     time::{Duration, Instant},
@@ -107,10 +109,10 @@ impl<'a> EdgeHubAuthRequest<'a> {
             version: API_VERSION,
             username: context.username(),
             password: context.password(),
-            certificate: context.certificate().map(|cert| cert.as_ref()),
+            certificate: context.certificate().map(AsRef::as_ref),
             certificate_chain: context
                 .cert_chain()
-                .map(|chain| chain.iter().map(|cert| cert.as_ref()).collect()),
+                .map(|chain| chain.iter().map(AsRef::as_ref).collect()),
         }
     }
 }

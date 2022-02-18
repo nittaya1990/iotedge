@@ -78,7 +78,7 @@ async fn pub_sub_not_allowed_identity_not_in_cache() {
                 false,
             ),
             retain: false,
-            topic_name: "$edgehub/device-1/twin/get?rid=42".into(),
+            topic_name: "$edgehub/device-1/twin/get?$rid=42".into(),
             payload: Bytes::from("qos 1"),
         })
         .await;
@@ -164,7 +164,7 @@ async fn auth_update_happy_case() {
         .publish_qos1("$edgehub/device-1/twin/res/#", "test_payload", true)
         .await;
 
-    assert_matches!(device_client.next().await, Some(Packet::Publish(p)) if p.payload == Bytes::from("test_payload"));
+    assert_matches!(device_client.next().await, Some(Packet::Publish(p)) if p.payload == *"test_payload");
 
     command_handler_shutdown_handle
         .shutdown()

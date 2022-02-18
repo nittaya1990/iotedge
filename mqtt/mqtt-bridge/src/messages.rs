@@ -161,9 +161,7 @@ where
                     return match self.store.push(&publication) {
                         Ok(_) => Ok(Handled::Fully),
                         Err(
-                            err
-                            @
-                            PersistError::RingBuffer(RingBufferError::InsufficientSpace {
+                            err @ PersistError::RingBuffer(RingBufferError::InsufficientSpace {
                                 ..
                             }),
                         ) => {
@@ -183,7 +181,7 @@ where
                         }
                         SubscriptionUpdateEvent::Unsubscribe(unsub) => {
                             debug!("received unsubscribe: {}", unsub);
-                            self.handle_unsubscribed(&unsub);
+                            self.handle_unsubscribed(unsub);
                         }
                         SubscriptionUpdateEvent::RejectedByServer(sub) => {
                             warn!(
@@ -411,7 +409,7 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(handler.topic_mappers.get("local/floor/#").is_none(), true);
+        assert!(handler.topic_mappers.get("local/floor/#").is_none());
     }
 
     #[test_case(MemoryPublicationStore::default())]

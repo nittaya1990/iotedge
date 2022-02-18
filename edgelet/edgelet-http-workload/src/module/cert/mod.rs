@@ -11,11 +11,11 @@ use aziot_key_client_async::Client as KeyClient;
 use aziot_key_openssl_engine as KeyEngine;
 
 #[cfg(test)]
-use edgelet_test_utils::clients::CertClient;
+use test_common::client::CertClient;
 #[cfg(test)]
-use edgelet_test_utils::clients::KeyClient;
+use test_common::client::KeyClient;
 #[cfg(test)]
-use edgelet_test_utils::clients::KeyEngine;
+use test_common::client::KeyEngine;
 
 #[derive(Debug, serde::Serialize)]
 #[cfg_attr(test, derive(serde::Deserialize))]
@@ -133,22 +133,6 @@ impl CertApi {
     }
 }
 
-/// DNS names must conform to following rules per RFC 1035:
-///  - Length less than 64 characters
-///  - Contains only lowercase alphanumeric characters or '-'
-///  - Starts and ends with an alphanumeric character
-///
-/// This function removes illegal characters from a given DNS name and trims it to 63 characters.
-pub fn sanitize_dns_name(name: String) -> String {
-    name.trim_start_matches(|c: char| !c.is_ascii_alphabetic())
-        .trim_end_matches(|c: char| !c.is_ascii_alphanumeric())
-        .to_lowercase()
-        .chars()
-        .filter(|c| c.is_ascii_alphanumeric() || c == &'-')
-        .take(63)
-        .collect::<String>()
-}
-
 fn new_keys() -> Result<
     (
         openssl::pkey::PKey<openssl::pkey::Private>,
@@ -263,7 +247,7 @@ pub(crate) async fn check_edge_ca(
     if should_renew(&cert_client, edge_ca_cert).await? {
         log::info!("Requesting new Edge CA certificate...");
 
-        let common_name = format!("iotedged workload ca {}", device_id);
+        let common_name = format!("aziot-edge CA {}", device_id);
         let keys = edge_ca_keys(key_connector, key_handle)?;
 
         let extensions = edge_ca_extensions().map_err(|_| {
@@ -274,7 +258,7 @@ pub(crate) async fn check_edge_ca(
             .map_err(|_| edgelet_http::error::server_error("failed to generate edge ca csr"))?;
 
         cert_client
-            .create_cert(edge_ca_cert, &csr, Some((edge_ca_cert, key_handle)))
+            .create_cert(edge_ca_cert, &csr, None)
             .await
             .map_err(|_| edgelet_http::error::server_error("failed to create edge ca cert"))?;
 
@@ -369,10 +353,10 @@ mod tests {
         let key_connector = url::Url::parse("unix:///tmp/test.sock").unwrap();
         let key_connector = http_common::Connector::new(&key_connector).unwrap();
 
-        let key_client = edgelet_test_utils::clients::KeyClient::default();
+        let key_client = super::KeyClient::default();
         let key_client = std::sync::Arc::new(futures_util::lock::Mutex::new(key_client));
 
-        let cert_client = edgelet_test_utils::clients::CertClient::default();
+        let cert_client = super::CertClient::default();
         let cert_client = std::sync::Arc::new(futures_util::lock::Mutex::new(cert_client));
 
         super::CertApi {
@@ -393,7 +377,7 @@ mod tests {
         let test_certs = vec![
             // Expired certificate.
             (
-                edgelet_test_utils::test_certificate(
+                test_common::credential::test_certificate(
                     "testCertificate",
                     Some(|cert| {
                         let expired = openssl::asn1::Asn1Time::from_unix(1).unwrap();
@@ -404,7 +388,7 @@ mod tests {
             ),
             // Certificate that is near expiry.
             (
-                edgelet_test_utils::test_certificate(
+                test_common::credential::test_certificate(
                     "testCertificate",
                     Some(|cert| {
                         let now = std::time::SystemTime::now()
@@ -425,7 +409,7 @@ mod tests {
             ),
             // Certificate that is not near expiry.
             (
-                edgelet_test_utils::test_certificate("testCertificate", None),
+                test_common::credential::test_certificate("testCertificate", None),
                 false,
             ),
         ];
